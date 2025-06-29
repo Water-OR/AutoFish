@@ -1,0 +1,15 @@
+{
+    "package": "net.llvg.af.mixin",
+    "required": true,
+    "refmap": "${refmap}",
+    "minVersion": "0.7",
+    "compatibilityLevel": "JAVA_8",
+    "client": [
+        "MixinMain",
+        "MixinMinecraft",
+        "MixinNetHandlerPlayerClient",
+        "MixinSoundManager",
+        "MixinWorldClient"
+    ],
+    "mixins": []
+}
