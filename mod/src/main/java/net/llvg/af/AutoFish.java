@@ -229,7 +229,7 @@ public final class AutoFish {
         }
         if (
           active &&
-          AutoFishConfiguration.isUseSwinSoundCheck() &&
+          AutoFishConfiguration.isUseSwimSoundCheck() &&
           name.equals("game.player.swim.splash")
         ) {
             float expand = AutoFishConfiguration.getExpandSwimSoundCheckRange();

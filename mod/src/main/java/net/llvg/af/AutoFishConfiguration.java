@@ -116,7 +116,7 @@ public final class AutoFishConfiguration
     )
     private boolean useSwimSoundCheck = false;
     
-    public static boolean isUseSwinSoundCheck() {
+    public static boolean isUseSwimSoundCheck() {
         return instance.useSwimSoundCheck;
     }
     
