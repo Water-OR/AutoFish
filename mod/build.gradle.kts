@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.utils.extendsFrom
 
 plugins {
     id("gg.essential.loom") version "1.9.31"
-    id("com.gradleup.shadow") version "8.3.3"
+    id("com.gradleup.shadow") version "8.3.7"
     `java-library`
     `kotlin-dsl`
 }
