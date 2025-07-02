@@ -14,10 +14,6 @@ public final class AutoFishAntiAfk {
         throw new UnsupportedOperationException();
     }
     
-    public static void startThread() {
-        MoveThread.instance.start();
-    }
-    
     static void init() { }
     
     static void trigger(@NotNull EntityPlayerSP player) {
@@ -36,7 +32,7 @@ public final class AutoFishAntiAfk {
     }
     
     static void onWorldLoad() {
-        MoveThread.clear(player(), System.currentTimeMillis());
+        MoveThread.clear(mc().thePlayer, System.currentTimeMillis());
     }
     
     private static float clampPitch(float value) {
@@ -65,6 +61,10 @@ public final class AutoFishAntiAfk {
       extends Thread
     {
         private static final MoveThread instance = new MoveThread();
+        
+        static {
+            instance.start();
+        }
         
         private static final Queue<Rotation> que = new PriorityQueue<>(Rotation.comparator);
         private static long lastTime = 0;
@@ -128,7 +128,7 @@ public final class AutoFishAntiAfk {
         
         private void _loop(long time) {
             EntityPlayerSP player;
-            if ((player = player()) == null) {
+            if ((player = mc().thePlayer) == null) {
                 clear(null, time);
                 return;
             }

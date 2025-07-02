@@ -1,8 +1,6 @@
 package net.llvg.af.utils;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.client.multiplayer.WorldClient;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,21 +9,18 @@ public final class Utility {
         throw new UnsupportedOperationException();
     }
     
-    public static void call(Object ignored) { }
+    @Nullable
+    private static Minecraft _mc = null;
     
     @NotNull
     public static Minecraft mc() {
-        return Minecraft.getMinecraft();
-    }
-    
-    @Nullable
-    public static WorldClient world() {
-        return mc().theWorld;
-    }
-    
-    @Nullable
-    public static EntityPlayerSP player() {
-        return mc().thePlayer;
+        Minecraft mc;
+        if ((mc = _mc) != null) return mc;
+        if ((mc = Minecraft.getMinecraft()) != null) {
+            _mc = mc;
+            return mc;
+        }
+        throw new IllegalStateException("Minecraft is not initialized yet");
     }
     
     public static float wrapTo180F(float value) {
