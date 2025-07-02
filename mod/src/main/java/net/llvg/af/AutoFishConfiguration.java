@@ -69,7 +69,7 @@ public final class AutoFishConfiguration
       min = -180,
       max = 180
     )
-    private float antiAfkRotationYaw = .2f;
+    private float antiAfkRotationYaw = .5f;
     
     public static float getAntiAfkRotationYaw() {
         return instance.antiAfkRotationYaw;
@@ -80,7 +80,7 @@ public final class AutoFishConfiguration
       min = -90,
       max = 90
     )
-    private float antiAfkRotationPitch = .1f;
+    private float antiAfkRotationPitch = .5f;
     
     public static float getAntiAfkRotationPitch() {
         return instance.antiAfkRotationPitch;
@@ -91,10 +91,17 @@ public final class AutoFishConfiguration
       min = 4,
       max = 5000
     )
-    private int antiAfkRotationTime = 200;
+    private int antiAfkRotationTime = 50;
     
     public static int getAntiAfkRotationTime() {
         return instance.antiAfkRotationTime;
+    }
+    
+    @Checkbox (name = "Reset Facing When Not Fishing")
+    private boolean resetFacingWhenNotFishing = false;
+    
+    public static boolean isResetFacingWhenNotFishing() {
+        return instance.resetFacingWhenNotFishing;
     }
     
     @Exclude
@@ -187,10 +194,32 @@ public final class AutoFishConfiguration
       max = Integer.MAX_VALUE,
       subcategory = SUBCATEGORY_THROW
     )
-    private int autoThrowDelay = 0;
+    private int autoThrowDelay = 100;
     
     public static int getAutoThrowDelay() {
         return instance.autoThrowDelay;
+    }
+    
+    @Number (
+      name = "Auto Throw First Delay (ms)",
+      min = 0,
+      max = Integer.MAX_VALUE,
+      subcategory = SUBCATEGORY_THROW
+    )
+    private int autoThrowFirstDelay = 500;
+    
+    public static int getAutoThrowFirstDelay() {
+        return instance.autoThrowFirstDelay;
+    }
+    
+    @Checkbox (
+      name = "Do Not Wait Hook Dead",
+      subcategory = SUBCATEGORY_THROW
+    )
+    private boolean doNotWaitHookDead = false;
+    
+    public static boolean isDoNotWaitHookDead() {
+        return instance.doNotWaitHookDead;
     }
     
     @Exclude

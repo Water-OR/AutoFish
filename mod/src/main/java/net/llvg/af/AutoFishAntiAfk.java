@@ -3,6 +3,7 @@ package net.llvg.af;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Random;
 import net.minecraft.client.entity.EntityPlayerSP;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -16,23 +17,55 @@ public final class AutoFishAntiAfk {
     
     static void init() { }
     
+    private static final Random rand = new Random();
+    private static final Object lock = new Object();
+    
+    private static float lastYawOffset = 0;
+    private static float lastPitchOffset = 0;
+    
     static void trigger(@NotNull EntityPlayerSP player) {
-        long time = System.currentTimeMillis();
-        float yaw = MoveThread.getBeginYaw();
-        float pitch = MoveThread.getBeginPitch();
-        MoveThread.clear(player, time);
-        float offsetYaw = AutoFishConfiguration.getAntiAfkRotationYaw();
-        float offsetPitch = AutoFishConfiguration.getAntiAfkRotationPitch();
-        int time1 = AutoFishConfiguration.getAntiAfkRotationTime();
-        MoveThread.put(
-          new Rotation(yaw - offsetYaw, pitch + offsetPitch, time + (time1 / 4)),
-          new Rotation(yaw + offsetYaw, pitch - offsetPitch, time + (time1 / 2)),
-          new Rotation(yaw, pitch, time + (time1 - time1 / 4))
-        );
+        synchronized (lock) {
+            MoveThread.clear(player);
+            float yaw = player.rotationYaw - lastYawOffset;
+            float pitch = player.rotationPitch - lastPitchOffset;
+            float currYawOffset = (rand.nextFloat() * 2 - 1) * AutoFishConfiguration.getAntiAfkRotationYaw();
+            float currPitchOffset = (rand.nextFloat() * 2 - 1) * AutoFishConfiguration.getAntiAfkRotationPitch();
+            if (AutoFishConfiguration.isVerbose()) AutoFish.chat("Facing to (", yaw, ", ", pitch, ") + (", currYawOffset, ", ", currPitchOffset, ")");
+            MoveThread.put(
+              player,
+              new Rotation(
+                yaw + currYawOffset,
+                pitch + currPitchOffset,
+                System.currentTimeMillis() + AutoFishConfiguration.getAntiAfkRotationTime()
+              )
+            );
+            lastYawOffset = currYawOffset;
+            lastPitchOffset = currPitchOffset;
+        }
     }
     
-    static void onWorldLoad() {
-        MoveThread.clear(mc().thePlayer, System.currentTimeMillis());
+    static void reset(
+      @Nullable EntityPlayerSP player,
+      boolean faceTo
+    ) {
+        synchronized (lock) {
+            MoveThread.clear(player);
+            if (player != null && faceTo) {
+                float yaw = player.rotationYaw - lastYawOffset;
+                float pitch = player.rotationPitch - lastPitchOffset;
+                if (AutoFishConfiguration.isVerbose()) AutoFish.chat("Facing to (", yaw, ", ", pitch, ")");
+                MoveThread.put(
+                  player,
+                  new Rotation(
+                    yaw,
+                    pitch,
+                    System.currentTimeMillis() + AutoFishConfiguration.getAntiAfkRotationTime()
+                  )
+                );
+            }
+            lastYawOffset = 0;
+            lastPitchOffset = 0;
+        }
     }
     
     private static float clampPitch(float value) {
@@ -71,33 +104,19 @@ public final class AutoFishAntiAfk {
         private static float lastYaw = 0;
         private static float lastPitch = 0;
         
-        private static float beginYaw = 0;
-        private static float beginPitch = 0;
-        
-        public static float getBeginYaw() {
-            return beginYaw;
-        }
-        
-        public static float getBeginPitch() {
-            return beginPitch;
-        }
-        
-        public static void clear(
-          @Nullable EntityPlayerSP player,
-          long time
-        ) {
+        public static void clear(@Nullable EntityPlayerSP player) {
             synchronized (que) {
                 que.clear();
-                if (player != null) {
-                    update(player, time);
-                    beginYaw = player.rotationYaw;
-                    beginPitch = clampPitch(player.rotationPitch);
-                }
+                if (player != null) update(player, System.currentTimeMillis());
             }
         }
         
-        public static void put(Rotation... values) {
+        public static void put(
+          @NotNull EntityPlayerSP player,
+          Rotation... values
+        ) {
             synchronized (que) {
+                if (que.isEmpty()) update(player, System.currentTimeMillis());
                 for (Rotation value : values) if (value != null) que.offer(value);
             }
         }
@@ -129,7 +148,7 @@ public final class AutoFishAntiAfk {
         private void _loop(long time) {
             EntityPlayerSP player;
             if ((player = mc().thePlayer) == null) {
-                clear(null, time);
+                clear(null);
                 return;
             }
             
@@ -142,12 +161,7 @@ public final class AutoFishAntiAfk {
                 rotate(player, last.yaw, last.pitch);
                 update(player, time);
             }
-            if (first == null) {
-                update(player, time);
-                beginYaw = player.rotationYaw;
-                beginPitch = clampPitch(player.rotationPitch);
-                return;
-            }
+            if (first == null) return;
             float progress = clampF(1f - (float) (first.time - time) / (first.time - lastTime), 0f, 1f);
             rotate(
               player,
