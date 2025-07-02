@@ -25,11 +25,12 @@ public final class AutoFishAntiAfk {
         float yaw = MoveThread.getBeginYaw();
         float pitch = MoveThread.getBeginPitch();
         MoveThread.clear(player, time);
-        float offset = AutoFishConfiguration.getAntiAfkRotation();
+        float offsetYaw = AutoFishConfiguration.getAntiAfkRotationYaw();
+        float offsetPitch = AutoFishConfiguration.getAntiAfkRotationPitch();
         int time1 = AutoFishConfiguration.getAntiAfkRotationTime();
         MoveThread.put(
-          new Rotation(yaw - offset, pitch, time + (time1 / 4)),
-          new Rotation(yaw + offset, pitch, time + (time1 / 2)),
+          new Rotation(yaw - offsetYaw, pitch + offsetPitch, time + (time1 / 4)),
+          new Rotation(yaw + offsetYaw, pitch - offsetPitch, time + (time1 / 2)),
           new Rotation(yaw, pitch, time + (time1 - time1 / 4))
         );
     }
