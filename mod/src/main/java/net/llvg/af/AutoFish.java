@@ -66,6 +66,10 @@ public final class AutoFish {
     private static boolean waitingForHookDead = false;
     private static boolean doneRightClickThisTick = false;
     
+    public static boolean isActive() {
+        return active;
+    }
+    
     public static synchronized void toggle() {
         boolean _active;
         synchronized (stateLock) {
@@ -106,6 +110,11 @@ public final class AutoFish {
     @Nullable
     private static EntityArmorStand timer = null;
     
+    @Nullable
+    public static EntityArmorStand getTimer() {
+        return timer;
+    }
+    
     private static final Clock catchClock = new Clock();
     private static final Clock throwClock = new Clock();
     
@@ -121,7 +130,7 @@ public final class AutoFish {
     
     public static void onTickEnd() {
         EntityPlayerSP player;
-        if ((player = player()) == null) return;
+        if ((player = mc().thePlayer) == null) return;
         if (active && hook == null) doThrow(player);
         if (!checkIsHoldingRod(player)) {
             waitingForHookJoin = false;
@@ -144,11 +153,8 @@ public final class AutoFish {
     public static void onEntityJoin(Entity entity) {
         if (hook == null || entity != hook) {
             EntityPlayerSP player;
-            if (
-              entity instanceof EntityFishHook &&
-              (player = player()) != null &&
-              ((EntityFishHook) entity).angler == player
-            ) {
+            if (entity instanceof EntityFishHook && (player = mc().thePlayer) != null &&
+                ((EntityFishHook) entity).angler == player) {
                 if (AutoFishConfiguration.isVerbose()) chat(VERBOSE_HOOK_JOIN);
                 hook = ((EntityFishHook) entity);
                 waitingForHookJoin = false;
@@ -194,12 +200,9 @@ public final class AutoFish {
             }
         } else {
             EntityPlayerSP player;
-            if (
-              active &&
-              AutoFishConfiguration.isUseFishTimerCheck() &&
-              (player = player()) != null &&
-              entity.getName().equals(fishingTimerCatchString)
-            ) {
+            if (active &&
+                AutoFishConfiguration.isUseFishTimerCheck() && (player = mc().thePlayer) != null &&
+                entity.getName().equals(fishingTimerCatchString)) {
                 if (AutoFishConfiguration.isVerbose()) chat(VERBOSE_FISH_TIMER_CATCH);
                 doCatch(player);
             }
@@ -292,7 +295,9 @@ public final class AutoFish {
         }
     }
     
-    public static void init() {
+    public static void init() { }
+    
+    public static void onGameStarted() {
         AutoFishConfiguration.init();
         AutoFishAntiAfk.init();
     }

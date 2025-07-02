@@ -4,6 +4,7 @@ import cc.polyfrost.oneconfig.config.Config;
 import cc.polyfrost.oneconfig.config.annotations.Button;
 import cc.polyfrost.oneconfig.config.annotations.Checkbox;
 import cc.polyfrost.oneconfig.config.annotations.Exclude;
+import cc.polyfrost.oneconfig.config.annotations.HUD;
 import cc.polyfrost.oneconfig.config.annotations.Info;
 import cc.polyfrost.oneconfig.config.annotations.KeyBind;
 import cc.polyfrost.oneconfig.config.annotations.Number;
@@ -12,6 +13,8 @@ import cc.polyfrost.oneconfig.config.core.OneKeyBind;
 import cc.polyfrost.oneconfig.config.data.InfoType;
 import cc.polyfrost.oneconfig.config.data.Mod;
 import cc.polyfrost.oneconfig.config.data.ModType;
+import net.llvg.af.hud.HudAutoFish;
+import net.llvg.af.hud.HudFishTimer;
 import net.minecraft.client.entity.EntityPlayerSP;
 
 import static net.llvg.af.utils.Utility.*;
@@ -78,7 +81,7 @@ public final class AutoFishConfiguration
       max = 90
     )
     private float antiAfkRotationPitch = .1f;
-
+    
     public static float getAntiAfkRotationPitch() {
         return instance.antiAfkRotationPitch;
     }
@@ -191,6 +194,23 @@ public final class AutoFishConfiguration
     }
     
     @Exclude
+    private static final String CATEGORY_HUD = "HUD";
+    
+    @HUD (
+      name = "Auto Fish",
+      category = CATEGORY_HUD
+    )
+    @SuppressWarnings ("unused")
+    private HudAutoFish hudAutoFish = HudAutoFish.instance;
+    
+    @HUD (
+      name = "Fish Timer",
+      category = CATEGORY_HUD
+    )
+    @SuppressWarnings ("unused")
+    private HudFishTimer hudFishTimer = HudFishTimer.instance;
+    
+    @Exclude
     private static final String CATEGORY_DEBUG = "Debug";
     
     @Info (
@@ -199,6 +219,7 @@ public final class AutoFishConfiguration
       size = 2,
       category = CATEGORY_DEBUG
     )
+    @SuppressWarnings ("unused")
     private Void info1 = null;
     
     @Checkbox (
@@ -220,7 +241,7 @@ public final class AutoFishConfiguration
     @SuppressWarnings ("unused")
     private static void rotate() {
         EntityPlayerSP player;
-        if ((player = player()) != null) AutoFishAntiAfk.trigger(player);
+        if ((player = mc().thePlayer) != null) AutoFishAntiAfk.trigger(player);
     }
     
     @KeyBind (
