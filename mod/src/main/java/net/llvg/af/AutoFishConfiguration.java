@@ -62,14 +62,25 @@ public final class AutoFishConfiguration
     }
     
     @Number (
-      name = "Anti Afk Rotation",
-      min = 0,
+      name = "Anti Afk Rotation Yaw",
+      min = -180,
       max = 180
     )
-    private float antiAfkRotation = .2f;
+    private float antiAfkRotationYaw = .2f;
     
-    public static float getAntiAfkRotation() {
-        return instance.antiAfkRotation;
+    public static float getAntiAfkRotationYaw() {
+        return instance.antiAfkRotationYaw;
+    }
+    
+    @Number (
+      name = "Anti Afk Rotation Pitch",
+      min = -90,
+      max = 90
+    )
+    private float antiAfkRotationPitch = .1f;
+
+    public static float getAntiAfkRotationPitch() {
+        return instance.antiAfkRotationPitch;
     }
     
     @Number (
