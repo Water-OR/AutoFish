@@ -319,4 +319,8 @@ public final class AutoFish {
         AutoFishConfiguration.init();
         AutoFishAntiAfk.init();
     }
+    
+    public static void onGameStop() {
+        AutoFishAntiAfk.stop();
+    }
 }

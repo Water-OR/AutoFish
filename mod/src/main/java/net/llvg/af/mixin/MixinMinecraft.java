@@ -18,6 +18,23 @@ public abstract class MixinMinecraft {
     }
     
     @Inject (
+      method = "shutdownMinecraftApplet",
+      at = @At ("HEAD")
+    )
+    @SuppressWarnings ("EmptyFinallyBlock")
+    private void shutdownMinecraftAppletInject(CallbackInfo ci) {
+        try {
+            AutoFish.onGameStop();
+        } catch (Throwable e) {
+            try {
+                AutoFish.logger.warn("Failure occur when game stop", e);
+            } finally {
+                // do nothing
+            }
+        }
+    }
+    
+    @Inject (
       method = "runTick",
       at = @At (
         value = "INVOKE",
