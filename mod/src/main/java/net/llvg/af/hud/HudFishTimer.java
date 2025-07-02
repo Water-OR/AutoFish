@@ -71,7 +71,7 @@ public class HudFishTimer
         glPushMatrix();
         glScalef(scale, scale, 1);
         FontRenderer fr = mc().fontRendererObj;
-        fr.drawString(text, (x + (boxWidth - fr.getStringWidth(text)) / 2) / scale, y / scale, -1, drawShadow);
+        fr.drawString(text, x / scale + (boxWidth - fr.getStringWidth(text)) / 2, y / scale, -1, drawShadow);
         glPopMatrix();
     }
     
