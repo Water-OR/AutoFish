@@ -15,7 +15,25 @@ public final class AutoFishAntiAfk {
         throw new UnsupportedOperationException();
     }
     
-    static void init() { }
+    static void init() {
+        MoveThread.instance.start();
+    }
+    
+    @SuppressWarnings ("EmptyFinallyBlock")
+    static void stop() {
+        try {
+            MoveThread.stop = true;
+            try {
+                MoveThread.instance.join();
+            } catch (InterruptedException ignored) { }
+        } catch (Throwable e) {
+            try {
+                AutoFish.logger.warn("Failure occur when stopping MoveThread", e);
+            } finally {
+                // do nothing
+            }
+        }
+    }
     
     private static final Random rand = new Random();
     private static final Object lock = new Object();
@@ -95,14 +113,11 @@ public final class AutoFishAntiAfk {
     {
         private static final MoveThread instance = new MoveThread();
         
-        static {
-            instance.start();
-        }
-        
         private static final Queue<Rotation> que = new PriorityQueue<>(Rotation.comparator);
         private static long lastTime = 0;
         private static float lastYaw = 0;
         private static float lastPitch = 0;
+        private static boolean stop = false;
         
         public static void clear(@Nullable EntityPlayerSP player) {
             synchronized (que) {
@@ -130,8 +145,9 @@ public final class AutoFishAntiAfk {
         @Override
         public synchronized void run() {
             try {
+                AutoFish.logger.info("Thread start");
                 long curr = System.currentTimeMillis(), next = curr;
-                while (!isInterrupted()) {
+                while (!stop) {
                     if ((curr = System.currentTimeMillis()) < next) continue;
                     try {
                         _loop(curr);
