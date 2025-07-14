@@ -54,9 +54,13 @@ public final class AutoFishConfiguration
     )
     private OneKeyBind toggleKey = new OneKeyBind();
     
+    @Exclude
+    private static final String SUBCATEGORY_ANTI_AFK = "Anti Afk";
+    
     @Checkbox (
-      name = "Anti Afk (WIP)",
-      size = 2
+      name = "Anti Afk",
+      size = 2,
+      subcategory = SUBCATEGORY_ANTI_AFK
     )
     private boolean antiAfk = false;
     
@@ -67,7 +71,8 @@ public final class AutoFishConfiguration
     @Number (
       name = "Anti Afk Rotation Yaw",
       min = -180,
-      max = 180
+      max = 180,
+      subcategory = SUBCATEGORY_ANTI_AFK
     )
     private float antiAfkRotationYaw = .5f;
     
@@ -78,7 +83,8 @@ public final class AutoFishConfiguration
     @Number (
       name = "Anti Afk Rotation Pitch",
       min = -90,
-      max = 90
+      max = 90,
+      subcategory = SUBCATEGORY_ANTI_AFK
     )
     private float antiAfkRotationPitch = .5f;
     
@@ -89,7 +95,8 @@ public final class AutoFishConfiguration
     @Number (
       name = "Anti Afk Rotation time (ms)",
       min = 4,
-      max = 5000
+      max = 5000,
+      subcategory = SUBCATEGORY_ANTI_AFK
     )
     private int antiAfkRotationTime = 50;
     
@@ -97,7 +104,10 @@ public final class AutoFishConfiguration
         return instance.antiAfkRotationTime;
     }
     
-    @Checkbox (name = "Reset Facing When Not Fishing")
+    @Checkbox (
+      name = "Reset Facing When Not Fishing",
+      subcategory = SUBCATEGORY_ANTI_AFK
+    )
     private boolean resetFacingWhenNotFishing = false;
     
     public static boolean isResetFacingWhenNotFishing() {
