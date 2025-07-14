@@ -14,7 +14,7 @@ import static net.llvg.af.utils.Utility.*;
 import static org.lwjgl.opengl.GL11.*;
 
 @SuppressWarnings ({ "FieldMayBeFinal", "FieldCanBeLocal" })
-public class HudFishTimer
+public final class HudFishTimer
   extends BasicHud
 {
     @Exclude
