@@ -141,7 +141,7 @@ public final class AutoFishConfiguration
     
     
     @Checkbox (
-      name = "Use player swim sound check",
+      name = "Use Player Swim Sound Check",
       size = 2,
       subcategory = SUBCATEGORY_CATCH
     )
@@ -164,7 +164,7 @@ public final class AutoFishConfiguration
     }
     
     @Checkbox (
-      name = "Use note sound check (Require skyblock 'Fishing Sound' setting enabled)",
+      name = "Use Note Sound Check (Require SkyBlock 'Fishing Sound' Setting Enabled)",
       size = 2,
       subcategory = SUBCATEGORY_CATCH
     )
@@ -175,7 +175,7 @@ public final class AutoFishConfiguration
     }
     
     @Checkbox (
-      name = "Use fish timer check (Require skyblock 'Fishing Timer' setting enabled)",
+      name = "Use Fish Timer Check (Require SkyBlock 'Fishing Timer' Setting Enabled)",
       size = 2,
       subcategory = SUBCATEGORY_CATCH
     )
