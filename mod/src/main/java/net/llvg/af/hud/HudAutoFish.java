@@ -42,7 +42,7 @@ public final class HudAutoFish
     
     @Exclude
     @Nullable
-    private String _text = null;
+    private transient String _text = null;
     
     private void lookupText(boolean example) {
         if (example) {
