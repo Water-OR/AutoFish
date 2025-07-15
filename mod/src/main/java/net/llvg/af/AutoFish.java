@@ -1,20 +1,32 @@
 package net.llvg.af;
 
+import cc.polyfrost.oneconfig.utils.hypixel.HypixelUtils;
+import cc.polyfrost.oneconfig.utils.hypixel.LocrawInfo;
+import cc.polyfrost.oneconfig.utils.hypixel.LocrawUtil;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.regex.Pattern;
 import net.llvg.af.utils.Clock;
+import net.llvg.af.utils.Dummy;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.audio.ISound;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.GuiIngame;
+import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityArmorStand;
 import net.minecraft.entity.projectile.EntityFishHook;
 import net.minecraft.item.ItemFishingRod;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.server.S1CPacketEntityMetadata;
+import net.minecraft.util.BlockPos;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
+import net.minecraft.world.chunk.Chunk;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -40,21 +52,21 @@ public final class AutoFish {
       new ChatComponentText(" ")
     };
     
-    public static synchronized void chat(Object... msgs) {
-        if (msgs == null) return;
+    public static synchronized void chat(Object... args) {
+        if (args == null) return;
         GuiIngame ui;
         if ((ui = mc().ingameGUI) == null) return;
         IChatComponent msg = new ChatComponentText("");
         for (IChatComponent i : prefix) if (i != null) msg.appendSibling(i);
-        for (Object i : msgs) {
-            if (i == null) {
+        for (Object arg : args) {
+            if (arg == null) {
                 msg.appendSibling(new ChatComponentText("null"));
-            } else if (i instanceof IChatComponent) {
-                msg.appendSibling((IChatComponent) i);
-            } else if (i instanceof String) {
-                msg.appendSibling(new ChatComponentText((String) i));
+            } else if (arg instanceof IChatComponent) {
+                msg.appendSibling((IChatComponent) arg);
+            } else if (arg instanceof String) {
+                msg.appendSibling(new ChatComponentText((String) arg));
             } else {
-                msg.appendSibling(new ChatComponentText(i.toString()));
+                msg.appendSibling(new ChatComponentText(arg.toString()));
             }
         }
         ui.getChatGUI().printChatMessage(msg);
@@ -165,16 +177,65 @@ public final class AutoFish {
         }
     }
     
-    public static void onWorldLoad() {
+    private static final Map<Chunk, Dummy> loadedChunks = new WeakHashMap<>();
+    
+    public static Set<Chunk> getLoadedChunks() {
+        return Collections.unmodifiableSet(loadedChunks.keySet());
+    }
+    
+    @SuppressWarnings ("BooleanMethodIsAlwaysInverted")
+    public static boolean isInCH() {
+        if (!HypixelUtils.INSTANCE.isHypixel()) return false;
+        LocrawInfo i;
+        
+        return
+          (i = LocrawUtil.INSTANCE.getLocrawInfo()) != null &&
+          LocrawInfo.GameType.SKYBLOCK == i.getGameType() &&
+          "crystal_hollows".equals(i.getGameMode());
+    }
+    
+    public static void onLocrawChange() {
+        if (AutoFishConfiguration.isVerbose()) chat("New Locraw: ", LocrawUtil.INSTANCE.getLocrawInfo());
+        if (
+          AutoFishConfiguration.isEnabled() &&
+          AutoFishConfiguration.isScanCHLava() &&
+          AutoFish.isInCH()
+        ) getLoadedChunks().forEach(AutoFishCHLavaESP::submitChunkScan);
+    }
+    
+    public static void onWorldLoad(@Nullable WorldClient newWorld) {
         hook = null;
         timer = null;
         holdingItem = null;
+        loadedChunks.clear();
         
-        if (active) {
+        if (newWorld != null && active) {
             throwFirstClock.update();
             AutoFishAntiAfk.reset(mc().thePlayer, false);
             toggle();
         }
+        
+        AutoFishCHLavaESP.onWorldLoad(newWorld);
+    }
+    
+    public static void onChunkLoad(@NotNull Chunk chunk) {
+        loadedChunks.put(chunk, Dummy.instance);
+        if (
+          AutoFishConfiguration.isEnabled() &&
+          AutoFishConfiguration.isScanCHLava() &&
+          AutoFish.isInCH()
+        ) AutoFishCHLavaESP.submitChunkScan(chunk);
+    }
+    
+    public static void onBlockChange(
+      @NotNull BlockPos pos,
+      @NotNull IBlockState newState
+    ) {
+        AutoFishCHLavaESP.onBlockChange(pos, newState);
+    }
+    
+    public static void onWorldRenderLast() {
+        AutoFishCHLavaESP.doRender();
     }
     
     public static void onEntityJoin(Entity entity) {
@@ -318,6 +379,7 @@ public final class AutoFish {
     public static void onGameStarted() {
         AutoFishConfiguration.init();
         AutoFishAntiAfk.init();
+        AutoFishCHLavaESP.init();
     }
     
     public static void onGameStop() {

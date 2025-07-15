@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 
 import static net.llvg.af.utils.Utility.*;
 
-public final class AutoFishAntiAfk {
+final class AutoFishAntiAfk {
     private AutoFishAntiAfk() {
         throw new UnsupportedOperationException();
     }
@@ -90,7 +90,7 @@ public final class AutoFishAntiAfk {
         return clampF(value, -90, 90);
     }
     
-    private static class Rotation {
+    private static final class Rotation {
         public final float yaw;
         public final float pitch;
         public final long time;
@@ -108,7 +108,7 @@ public final class AutoFishAntiAfk {
         public static final Comparator<Rotation> comparator = Comparator.comparingLong(it -> it.time);
     }
     
-    private final static class MoveThread
+    private static final class MoveThread
       extends Thread
     {
         private static final MoveThread instance = new MoveThread();

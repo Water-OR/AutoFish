@@ -3,12 +3,14 @@ package net.llvg.af;
 import cc.polyfrost.oneconfig.config.Config;
 import cc.polyfrost.oneconfig.config.annotations.Button;
 import cc.polyfrost.oneconfig.config.annotations.Checkbox;
+import cc.polyfrost.oneconfig.config.annotations.Color;
 import cc.polyfrost.oneconfig.config.annotations.Exclude;
 import cc.polyfrost.oneconfig.config.annotations.HUD;
 import cc.polyfrost.oneconfig.config.annotations.Info;
 import cc.polyfrost.oneconfig.config.annotations.KeyBind;
 import cc.polyfrost.oneconfig.config.annotations.Number;
 import cc.polyfrost.oneconfig.config.annotations.Slider;
+import cc.polyfrost.oneconfig.config.core.OneColor;
 import cc.polyfrost.oneconfig.config.core.OneKeyBind;
 import cc.polyfrost.oneconfig.config.data.InfoType;
 import cc.polyfrost.oneconfig.config.data.Mod;
@@ -16,11 +18,12 @@ import cc.polyfrost.oneconfig.config.data.ModType;
 import net.llvg.af.hud.HudAutoFish;
 import net.llvg.af.hud.HudFishTimer;
 import net.minecraft.client.entity.EntityPlayerSP;
+import org.jetbrains.annotations.NotNull;
 
 import static net.llvg.af.utils.Utility.*;
 
 @SuppressWarnings ({ "FieldMayBeFinal", "FieldCanBeLocal" })
-public final class AutoFishConfiguration
+final class AutoFishConfiguration
   extends Config
 {
     @Exclude
@@ -47,6 +50,11 @@ public final class AutoFishConfiguration
     }
     
     static void init() { }
+    
+    @SuppressWarnings ("BooleanMethodIsAlwaysInverted")
+    public static boolean isEnabled() {
+        return instance.enabled;
+    }
     
     @KeyBind (
       name = "Toggle Key",
@@ -230,6 +238,94 @@ public final class AutoFishConfiguration
     
     public static boolean isDoNotWaitHookDead() {
         return instance.doNotWaitHookDead;
+    }
+    
+    @Exclude
+    private static final String SUBCATEGORY_CH_LAVA_ESP = "Crystal Hollows Lava ESP";
+    
+    @Checkbox (
+      name = "Scan CH Lava",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    private boolean scanCHLava = false;
+    
+    public static boolean isScanCHLava() {
+        return instance.scanCHLava;
+    }
+    
+    @Button (
+      name = "Submit CH Lava Scan",
+      text = "Submit",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    @Exclude
+    @SuppressWarnings ("unused")
+    private transient Runnable submitCHLavaScan = () -> {
+        if (isEnabled() && isScanCHLava() && AutoFish.isInCH()) AutoFish.getLoadedChunks().forEach(AutoFishCHLavaESP::submitChunkScan);
+    };
+    
+    @Checkbox (
+      name = "Render Outline",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    private boolean renderOutline = false;
+    
+    public static boolean isRenderOutline() {
+        return instance.renderOutline;
+    }
+    
+    @Color (
+      name = "Outline Color",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    @NotNull
+    private OneColor outlineColor = new OneColor(0xFFFFC800);
+    
+    @NotNull
+    public static OneColor getOutlineColor() {
+        return instance.outlineColor;
+    }
+    
+    @Number (
+      name = "Outline Width",
+      min = 0,
+      max = Float.MAX_VALUE,
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    private float outlineWidth = 2f;
+    
+    public static float getOutlineWidth() {
+        return instance.outlineWidth;
+    }
+    
+    @Checkbox (
+      name = "Disable Outline Connection",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    private boolean disableOutlineConnection = false;
+    
+    public static boolean isDisableOutlineConnection() {
+        return instance.disableOutlineConnection;
+    }
+    
+    @Checkbox (
+      name = "Render Face",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    private boolean renderFace = false;
+    
+    public static boolean isRenderFace() {
+        return instance.renderFace;
+    }
+    
+    @Color (
+      name = "Face Color",
+      subcategory = SUBCATEGORY_CH_LAVA_ESP
+    )
+    private OneColor faceColor = new OneColor(0x3F00FFFF);
+    
+    public static OneColor getFaceColor() {
+        return instance.faceColor;
     }
     
     @Exclude

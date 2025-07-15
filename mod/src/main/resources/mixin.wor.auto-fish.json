@@ -5,11 +5,15 @@
     "minVersion": "0.7",
     "compatibilityLevel": "JAVA_8",
     "client": [
+        "MixinEntityRenderer",
         "MixinMain",
         "MixinMinecraft",
         "MixinNetHandlerPlayerClient",
         "MixinSoundManager",
         "MixinWorldClient"
     ],
-    "mixins": []
+    "mixins": [
+        "MixinChunk",
+        "MixinLocrawUtil"
+    ]
 }

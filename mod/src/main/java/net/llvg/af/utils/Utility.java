@@ -1,5 +1,6 @@
 package net.llvg.af.utils;
 
+import java.util.concurrent.locks.Lock;
 import net.minecraft.client.Minecraft;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -36,5 +37,13 @@ public final class Utility {
       float max
     ) {
         return Math.max(Math.min(value, max), min);
+    }
+    
+    public static final Dummy DUMMY = Dummy.instance;
+    
+    @NotNull
+    public static AutoClosableNE withLock(@NotNull Lock lock) {
+        lock.lock();
+        return lock::unlock;
     }
 }
