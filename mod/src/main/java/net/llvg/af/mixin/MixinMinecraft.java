@@ -2,6 +2,7 @@ package net.llvg.af.mixin;
 
 import net.llvg.af.AutoFish;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.WorldClient;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -64,5 +65,17 @@ public abstract class MixinMinecraft {
     )
     private void rightClickMouseInject(CallbackInfo ci) {
         AutoFish.markDoneRightClick();
+    }
+    
+    @Inject (
+      method = "loadWorld(Lnet/minecraft/client/multiplayer/WorldClient;Ljava/lang/String;)V",
+      at = @At ("HEAD")
+    )
+    private void loadWorldInject(
+      WorldClient worldClientIn,
+      String loadingMessage,
+      CallbackInfo ci
+    ) {
+        AutoFish.onWorldLoad(worldClientIn);
     }
 }

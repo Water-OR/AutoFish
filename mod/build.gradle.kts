@@ -25,17 +25,14 @@ group = "net.llvg"
 base.archivesName = "Auto Fish"
 
 loom {
-    runConfigs.configureEach {
-        if (environment != "client") {
-            isIdeConfigGenerated = false
-            return@configureEach
+    runConfigs {
+        "client" {
+            property("mixin.debug.export", "true")
+            property("mixin.debug.verbose", "true")
+            property("mixin.hotSwap", "true")
+            programArgs("--tweakClass", tweakerClass)
+            isIdeConfigGenerated = true
         }
-        
-        property("mixin.debug.export", "true")
-        property("mixin.debug.verbose", "true")
-        property("mixin.hotSwap", "true")
-        programArgs("--tweakClass", tweakerClass)
-        isIdeConfigGenerated = true
     }
     
     forge {
@@ -84,7 +81,10 @@ repositories {
         }
     }
     maven("https://repo.polyfrost.org/releases") {
-        name = "Polyfrost Repo"
+        name = "PolyFrost Repo"
+        content {
+            includeGroup("cc.polyfrost")
+        }
     }
 }
 
@@ -104,6 +104,7 @@ dependencies {
 
 tasks {
     processResources {
+        inputs.property("refmap", mixinRefmap)
         filesMatching(mixinConfig) { expand("refmap" to mixinRefmap) }
         rename("(.+_at.cfg)", "META-INF/$1")
     }
