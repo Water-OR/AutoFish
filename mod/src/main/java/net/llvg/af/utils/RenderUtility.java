@@ -1,5 +1,8 @@
 package net.llvg.af.utils;
 
+import net.minecraft.util.BlockPos;
+import org.jetbrains.annotations.NotNull;
+
 import static org.lwjgl.opengl.GL11.*;
 
 public final class RenderUtility {
@@ -24,72 +27,87 @@ public final class RenderUtility {
       double maxX,
       double maxY,
       double maxZ,
-      CullInfo cull
+      @NotNull CullInfo cull
     ) {
-        boolean cullNorth = cull.get(2);
-        boolean cullSouth = cull.get(3);
-        boolean callWest = cull.get(4);
-        boolean cullEast = cull.get(5);
+        boolean keepNorth = !cull.getNorth();
+        boolean keepSouth = !cull.getSouth();
+        boolean keepWest = !cull.getWest();
+        boolean keepEast = !cull.getEast();
         
-        if (!cull.get(0)) {
-            if (!cullNorth) {
+        if (!cull.getDown()) {
+            if (keepNorth) {
                 glVertex3d(minX, minY, minZ);
                 glVertex3d(maxX, minY, minZ);
             }
-            if (!cullSouth) {
+            if (keepSouth) {
                 glVertex3d(maxX, minY, maxZ);
                 glVertex3d(minX, minY, maxZ);
             }
-            if (!callWest) {
+            if (keepWest) {
                 glVertex3d(minX, minY, minZ);
                 glVertex3d(minX, minY, maxZ);
             }
-            if (!cullEast) {
+            if (keepEast) {
                 glVertex3d(maxX, minY, maxZ);
-                glVertex3d(maxX, minY, minZ);
-            }
-        }
-        
-        if (!cull.get(1)) {
-            if (!cullNorth) {
-                glVertex3d(maxX, maxY, minZ);
-                glVertex3d(minX, maxY, minZ);
-            }
-            if (!cullSouth) {
-                glVertex3d(minX, maxY, maxZ);
-                glVertex3d(maxX, maxY, maxZ);
-            }
-            if (!callWest) {
-                glVertex3d(minX, maxY, maxZ);
-                glVertex3d(minX, maxY, minZ);
-            }
-            if (!cullEast) {
-                glVertex3d(maxX, maxY, minZ);
-                glVertex3d(maxX, maxY, maxZ);
-            }
-        }
-        
-        if (!cullNorth) {
-            if (!callWest) {
-                glVertex3d(minX, minY, minZ);
-                glVertex3d(minX, maxY, minZ);
-            }
-            if (!cullEast) {
-                glVertex3d(maxX, maxY, minZ);
                 glVertex3d(maxX, minY, minZ);
             }
         }
         
-        if (!cullSouth) {
-            if (!callWest) {
+        if (!cull.getUp()) {
+            if (keepNorth) {
+                glVertex3d(maxX, maxY, minZ);
+                glVertex3d(minX, maxY, minZ);
+            }
+            if (keepSouth) {
+                glVertex3d(minX, maxY, maxZ);
+                glVertex3d(maxX, maxY, maxZ);
+            }
+            if (keepWest) {
+                glVertex3d(minX, maxY, maxZ);
+                glVertex3d(minX, maxY, minZ);
+            }
+            if (keepEast) {
+                glVertex3d(maxX, maxY, minZ);
+                glVertex3d(maxX, maxY, maxZ);
+            }
+        }
+        
+        if (keepNorth) {
+            if (keepWest) {
+                glVertex3d(minX, minY, minZ);
+                glVertex3d(minX, maxY, minZ);
+            }
+            if (keepEast) {
+                glVertex3d(maxX, maxY, minZ);
+                glVertex3d(maxX, minY, minZ);
+            }
+        }
+        
+        if (keepSouth) {
+            if (keepWest) {
                 glVertex3d(minX, maxY, maxZ);
                 glVertex3d(minX, minY, maxZ);
             }
-            if (!cullEast) {
+            if (keepEast) {
                 glVertex3d(maxX, minY, maxZ);
                 glVertex3d(maxX, maxY, maxZ);
             }
         }
+    }
+    
+    public static void processBlockOutlinePoints(
+      @NotNull BlockPos pos,
+      @NotNull CullInfo cull
+    ) {
+        processOutlinePoints(
+          pos.getX(),
+          pos.getY(),
+          pos.getZ(),
+          pos.getX() + 1,
+          pos.getY() + 1,
+          pos.getZ() + 1,
+          cull
+        );
     }
     
     public static void processOutlinePointsNoConnection(
@@ -141,6 +159,17 @@ public final class RenderUtility {
         glVertex3d(maxX, maxY, maxZ);
     }
     
+    public static void processBlockOutlinePointsNoConnection(@NotNull BlockPos pos) {
+        processOutlinePointsNoConnection(
+          pos.getX(),
+          pos.getY(),
+          pos.getZ(),
+          pos.getX() + 1,
+          pos.getY() + 1,
+          pos.getZ() + 1
+        );
+    }
+    
     public static void processFacePoints(
       double minX,
       double minY,
@@ -148,9 +177,9 @@ public final class RenderUtility {
       double maxX,
       double maxY,
       double maxZ,
-      CullInfo cull
+      @NotNull CullInfo cull
     ) {
-        if (!cull.get(0)) {
+        if (!cull.getDown()) {
             glVertex3d(minX, minY, minZ);
             glVertex3d(maxX, minY, minZ);
             glVertex3d(minX, minY, maxZ);
@@ -162,7 +191,7 @@ public final class RenderUtility {
             glVertex3d(minX, minY, minZ);
         }
         
-        if (!cull.get(1)) {
+        if (!cull.getUp()) {
             glVertex3d(maxX, maxY, maxZ);
             glVertex3d(minX, maxY, maxZ);
             glVertex3d(maxX, maxY, minZ);
@@ -174,7 +203,7 @@ public final class RenderUtility {
             glVertex3d(maxX, maxY, maxZ);
         }
         
-        if (!cull.get(2)) {
+        if (!cull.getNorth()) {
             glVertex3d(minX, minY, minZ);
             glVertex3d(minX, maxY, minZ);
             glVertex3d(maxX, minY, minZ);
@@ -186,7 +215,7 @@ public final class RenderUtility {
             glVertex3d(minX, minY, minZ);
         }
         
-        if (!cull.get(3)) {
+        if (!cull.getSouth()) {
             glVertex3d(maxX, maxY, maxZ);
             glVertex3d(maxX, minY, maxZ);
             glVertex3d(minX, maxY, maxZ);
@@ -198,7 +227,7 @@ public final class RenderUtility {
             glVertex3d(maxX, maxY, maxZ);
         }
         
-        if (!cull.get(4)) {
+        if (!cull.getWest()) {
             glVertex3d(minX, minY, minZ);
             glVertex3d(minX, minY, maxZ);
             glVertex3d(minX, maxY, minZ);
@@ -210,7 +239,7 @@ public final class RenderUtility {
             glVertex3d(minX, minY, minZ);
         }
         
-        if (!cull.get(5)) {
+        if (!cull.getEast()) {
             glVertex3d(maxX, maxY, maxZ);
             glVertex3d(maxX, maxY, minZ);
             glVertex3d(maxX, minY, maxZ);
@@ -221,5 +250,20 @@ public final class RenderUtility {
             glVertex3d(maxX, maxY, minZ);
             glVertex3d(maxX, maxY, maxZ);
         }
+    }
+    
+    public static void processBlockFacePoints(
+      @NotNull BlockPos pos,
+      @NotNull CullInfo cull
+    ) {
+        processFacePoints(
+          pos.getX(),
+          pos.getY(),
+          pos.getZ(),
+          pos.getX() + 1,
+          pos.getY() + 1,
+          pos.getZ() + 1,
+          cull
+        );
     }
 }

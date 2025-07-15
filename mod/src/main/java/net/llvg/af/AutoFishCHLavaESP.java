@@ -15,6 +15,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import net.llvg.af.utils.AutoClosableNE;
 import net.llvg.af.utils.CullInfo;
 import net.llvg.af.utils.Dummy;
+import net.llvg.af.utils.RenderUtility;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.multiplayer.WorldClient;
@@ -56,25 +57,22 @@ final class AutoFishCHLavaESP {
     
     private static void addLava(BlockPos pos) {
         synchronized (lavaBlocks) {
-            CullInfo selfInfo = lavaBlocks.computeIfAbsent(pos, (k) -> new CullInfo());
+            CullInfo selfCull = lavaBlocks.computeIfAbsent(pos, (k) -> new CullInfo());
             for (EnumFacing face : EnumFacing.values()) {
-                CullInfo sideInfo = lavaBlocks.get(pos.offset(face));
-                if (sideInfo == null) continue;
-                selfInfo.set(face.index, true);
-                sideInfo.set(face.opposite, true);
+                CullInfo sideCull = lavaBlocks.get(pos.offset(face));
+                if (sideCull == null) continue;
+                selfCull.set(face.index, true);
+                sideCull.set(face.opposite, true);
             }
         }
     }
     
     private static void remLava(BlockPos pos) {
         synchronized (lavaBlocks) {
-            CullInfo selfInfo = lavaBlocks.remove(pos);
-            if (selfInfo == null) return;
-            
-            for (EnumFacing face : EnumFacing.values()) {
-                CullInfo sideInfo = lavaBlocks.get(pos.offset(face));
-                if (sideInfo == null) continue;
-                sideInfo.set(face.opposite, false);
+            if (lavaBlocks.remove(pos) != null) for (EnumFacing face : EnumFacing.values()) {
+                CullInfo sideCull = lavaBlocks.get(pos.offset(face));
+                if (sideCull == null) continue;
+                sideCull.set(face.opposite, false);
             }
         }
     }
@@ -234,20 +232,8 @@ final class AutoFishCHLavaESP {
                 glLineWidth(AutoFishConfiguration.getOutlineWidth());
                 glBegin(GL_LINES);
                 if (AutoFishConfiguration.isDisableOutlineConnection()) {
-                    lavaBlocks.forEach((pos, info) -> {
-                        double x = pos.getX();
-                        double y = pos.getY();
-                        double z = pos.getZ();
-                        processOutlinePointsNoConnection(x, y, z, x + 1, y + 1, z + 1);
-                    });
-                } else {
-                    lavaBlocks.forEach((pos, info) -> {
-                        double x = pos.getX();
-                        double y = pos.getY();
-                        double z = pos.getZ();
-                        processOutlinePoints(x, y, z, x + 1, y + 1, z + 1, info);
-                    });
-                }
+                    lavaBlocks.forEach((pos, info) -> processBlockOutlinePointsNoConnection(pos));
+                } else lavaBlocks.forEach(RenderUtility::processBlockOutlinePoints);
                 glEnd();
             }
             
@@ -260,12 +246,7 @@ final class AutoFishCHLavaESP {
                   color.getAlpha() / 255.
                 );
                 glBegin(GL_QUADS);
-                lavaBlocks.forEach((pos, info) -> {
-                    double x = pos.getX();
-                    double y = pos.getY();
-                    double z = pos.getZ();
-                    processFacePoints(x, y, z, x + 1, y + 1, z + 1, info);
-                });
+                lavaBlocks.forEach(RenderUtility::processBlockFacePoints);
                 glEnd();
             }
         }
