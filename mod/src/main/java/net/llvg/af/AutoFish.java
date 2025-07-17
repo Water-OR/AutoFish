@@ -296,7 +296,7 @@ public final class AutoFish {
         }
     }
     
-    private static synchronized void doCatch() {
+    private static void doCatch() {
         if (
           !AutoFishConfiguration.isAutoCatch() ||
           doneRightClickThisTick ||
@@ -312,7 +312,7 @@ public final class AutoFish {
         if (AutoFishConfiguration.isAntiAfk()) AutoFishAntiAfk.trigger();
     }
     
-    private static synchronized void doThrow() {
+    private static void doThrow() {
         if (
           !AutoFishConfiguration.isAutoThrow() ||
           doneRightClickThisTick ||
