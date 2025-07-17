@@ -6,10 +6,12 @@ import cc.polyfrost.oneconfig.config.annotations.Number;
 import cc.polyfrost.oneconfig.hud.BasicHud;
 import cc.polyfrost.oneconfig.libs.universal.UMatrixStack;
 import net.llvg.af.AutoFish;
+import net.llvg.af.utils.AutoClosableNE;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.entity.item.EntityArmorStand;
 import org.jetbrains.annotations.Nullable;
 
+import static net.llvg.af.utils.RenderUtility.*;
 import static net.llvg.af.utils.Utility.*;
 import static org.lwjgl.opengl.GL11.*;
 
@@ -18,7 +20,7 @@ public final class HudFishTimer
   extends BasicHud
 {
     @Exclude
-    public static final HudFishTimer instance = new HudFishTimer();
+    public static final HudFishTimer DEFAULT = new HudFishTimer();
     
     private HudFishTimer() { }
     
@@ -68,11 +70,11 @@ public final class HudFishTimer
     ) {
         String text;
         if ((text = _text) == null) return;
-        glPushMatrix();
-        glScalef(scale, scale, 1);
-        FontRenderer fr = mc().fontRendererObj;
-        fr.drawString(text, x / scale + (boxWidth - fr.getStringWidth(text)) / 2, y / scale, -1, drawShadow);
-        glPopMatrix();
+        try (AutoClosableNE ignored = glWrapBlock()) {
+            glScalef(scale, scale, 1);
+            FontRenderer fr = mc().fontRendererObj;
+            fr.drawString(text, x / scale + (boxWidth - fr.getStringWidth(text)) / 2, y / scale, -1, drawShadow);
+        }
     }
     
     @Override

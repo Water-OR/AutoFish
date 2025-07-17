@@ -6,8 +6,10 @@ import cc.polyfrost.oneconfig.config.annotations.Text;
 import cc.polyfrost.oneconfig.hud.BasicHud;
 import cc.polyfrost.oneconfig.libs.universal.UMatrixStack;
 import net.llvg.af.AutoFish;
+import net.llvg.af.utils.AutoClosableNE;
 import org.jetbrains.annotations.Nullable;
 
+import static net.llvg.af.utils.RenderUtility.*;
 import static net.llvg.af.utils.Utility.*;
 import static org.lwjgl.opengl.GL11.*;
 
@@ -16,11 +18,9 @@ public final class HudAutoFish
   extends BasicHud
 {
     @Exclude
-    public static final HudAutoFish instance = new HudAutoFish();
+    public static final HudAutoFish DEFAULT = new HudAutoFish();
     
-    private HudAutoFish() {
-        super(false);
-    }
+    private HudAutoFish() { }
     
     @Checkbox (name = "Show When Enabled")
     private boolean showWhenEnabled = false;
@@ -45,14 +45,11 @@ public final class HudAutoFish
     private transient String _text = null;
     
     private void lookupText(boolean example) {
-        if (example) {
-            _text = "Auto Fish Text";
+        if (example) _text = "Auto Fish Text";
+        else if (AutoFish.isActive()) {
+            _text = showWhenEnabled ? textWhenEnabled : null;
         } else {
-            if (AutoFish.isActive()) {
-                _text = showWhenEnabled ? textWhenEnabled : null;
-            } else {
-                _text = showWhenDisabled ? textWhenDisabled : null;
-            }
+            _text = showWhenDisabled ? textWhenDisabled : null;
         }
     }
     
@@ -75,16 +72,16 @@ public final class HudAutoFish
     ) {
         String text;
         if ((text = _text) == null) return;
-        glPushMatrix();
-        glScalef(scale, scale, 1);
-        mc().fontRendererObj.drawString(
-          text,
-          x / scale,
-          y / scale,
-          -1,
-          drawShadow
-        );
-        glPopMatrix();
+        try (AutoClosableNE ignored = glWrapBlock()) {
+            glScalef(scale, scale, 1);
+            mc().fontRendererObj.drawString(
+              text,
+              x / scale,
+              y / scale,
+              -1,
+              drawShadow
+            );
+        }
     }
     
     @Override

@@ -29,7 +29,6 @@ loom {
         "client" {
             property("mixin.debug.export", "true")
             property("mixin.debug.verbose", "true")
-            property("mixin.hotSwap", "true")
             programArgs("--tweakClass", tweakerClass)
             isIdeConfigGenerated = true
         }
