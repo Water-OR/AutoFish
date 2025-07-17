@@ -1,8 +1,6 @@
 package net.llvg.af;
 
-import java.util.Comparator;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.lang.ref.WeakReference;
 import java.util.Random;
 import net.minecraft.client.entity.EntityPlayerSP;
 import org.jetbrains.annotations.NotNull;
@@ -15,193 +13,187 @@ final class AutoFishAntiAfk {
         throw new UnsupportedOperationException();
     }
     
-    static void init() {
-        MoveThread.instance.start();
+    static void init() { /* For <clinit> invoke */ }
+    
+    private static final Thread thread = new Thread(AutoFishAntiAfk::loop, "Auto Fish | Anti afk rotator thread");
+    
+    static {
+        thread.start();
     }
     
-    @SuppressWarnings ("EmptyFinallyBlock")
+    private enum ThreadState {
+        RUNNING,
+        SUSPEND,
+        STOPPED,
+    }
+    
+    @NotNull
+    private static ThreadState state = ThreadState.SUSPEND;
+    private static final Object stateLock = new Object();
+    
+    private static volatile int waitForCancel = 0;
+    private static final Object waitForCancelLock = new Object();
+    
     static void stop() {
-        try {
-            MoveThread.stop = true;
-            try {
-                MoveThread.instance.join();
-            } catch (InterruptedException ignored) { }
-        } catch (Throwable e) {
-            try {
-                AutoFish.logger.warn("Failure occur when stopping MoveThread", e);
-            } finally {
-                // do nothing
+        if (!thread.isAlive()) {
+            AutoFish.logger.warn("Anti afk rotator thread is not alive, this is not permitted");
+            return;
+        }
+        cancel();
+        thread.interrupt();
+        
+        synchronized (stateLock) {
+            if (state != ThreadState.STOPPED) try {
+                stateLock.wait();
+            } catch (InterruptedException e) {
+                AutoFish.logger.info("Interrupted while waiting stopping", e);
+                Thread.currentThread().interrupt();
             }
         }
     }
+    
+    
+    @Nullable
+    private static volatile Rotation rotation = null;
     
     private static final Random rand = new Random();
-    private static final Object lock = new Object();
     
-    private static float lastYawOffset = 0;
-    private static float lastPitchOffset = 0;
-    
-    static void trigger(@NotNull EntityPlayerSP player) {
-        synchronized (lock) {
-            MoveThread.clear(player);
-            float yaw = player.rotationYaw - lastYawOffset;
-            float pitch = player.rotationPitch - lastPitchOffset;
-            float currYawOffset = (rand.nextFloat() * 2 - 1) * AutoFishConfiguration.getAntiAfkRotationYaw();
-            float currPitchOffset = (rand.nextFloat() * 2 - 1) * AutoFishConfiguration.getAntiAfkRotationPitch();
-            if (AutoFishConfiguration.isVerbose()) AutoFish.chat("Facing to (", yaw, ", ", pitch, ") + (", currYawOffset, ", ", currPitchOffset, ")");
-            MoveThread.put(
-              player,
-              new Rotation(
-                yaw + currYawOffset,
-                pitch + currPitchOffset,
-                System.currentTimeMillis() + AutoFishConfiguration.getAntiAfkRotationTime()
-              )
-            );
-            lastYawOffset = currYawOffset;
-            lastPitchOffset = currPitchOffset;
-        }
-    }
-    
-    static void reset(
-      @Nullable EntityPlayerSP player,
-      boolean faceTo
-    ) {
-        synchronized (lock) {
-            MoveThread.clear(player);
-            if (player != null && faceTo) {
-                float yaw = player.rotationYaw - lastYawOffset;
-                float pitch = player.rotationPitch - lastPitchOffset;
-                if (AutoFishConfiguration.isVerbose()) AutoFish.chat("Facing to (", yaw, ", ", pitch, ")");
-                MoveThread.put(
-                  player,
-                  new Rotation(
-                    yaw,
-                    pitch,
-                    System.currentTimeMillis() + AutoFishConfiguration.getAntiAfkRotationTime()
-                  )
-                );
+    private static void cancel() {
+        synchronized (stateLock) {
+            if (state != ThreadState.RUNNING) return;
+            ++waitForCancel;
+            try {
+                stateLock.wait();
+            } catch (InterruptedException e) {
+                AutoFish.logger.warn("Thread interrupt while waiting cancelling", e);
+                Thread.currentThread().interrupt();
+            } finally {
+                if (--waitForCancel <= 0) synchronized (waitForCancelLock) {
+                    waitForCancelLock.notifyAll();
+                }
             }
-            lastYawOffset = 0;
-            lastPitchOffset = 0;
+        }
+        
+    }
+    
+    private static void rotate(
+      float yaw,
+      float pitch
+    ) {
+        synchronized (stateLock) {
+            if (state != ThreadState.SUSPEND) return;
+            rotation = new Rotation(yaw, pitch, AutoFishConfiguration.getAntiAfkRotationTime());
+            stateLock.notifyAll();
         }
     }
     
-    private static float clampPitch(float value) {
-        return clampF(value, -90, 90);
+    static void trigger() {
+        cancel();
+        rotate(
+          (rand.nextFloat() * 2 - 1) * AutoFishConfiguration.getAntiAfkRotationYaw(),
+          (rand.nextFloat() * 2 - 1) * AutoFishConfiguration.getAntiAfkRotationPitch()
+        );
+    }
+    
+    static void reset(boolean rotate) {
+        cancel();
+        if (rotate) rotate(0, 0);
+    }
+    
+    
+    private static void loop() {
+        AutoFish.logger.info("Thread start");
+        
+        float prevYawOffset = 0;
+        float prevPitchOffset = 0;
+        Rotation r;
+loop:
+        while (true) {
+            synchronized (stateLock) {
+                while ((r = rotation) == null) {
+                    try {
+                        stateLock.wait();
+                    } catch (InterruptedException e) {
+                        AutoFish.logger.info("Interrupted, stopping", e);
+                        Thread.currentThread().interrupt();
+                        break loop;
+                    }
+                    AutoFish.logger.info("Wake up, rotation: {}", rotation);
+                    if (AutoFishConfiguration.isVerbose()) AutoFish.chat("Wake up, rotation: ", rotation);
+                }
+                state = ThreadState.RUNNING;
+            }
+            
+            float beginYawOffset = prevYawOffset;
+            float beginPitchOffset = prevPitchOffset;
+            
+            long currTime;
+            long prevTime = System.currentTimeMillis();
+            WeakReference<EntityPlayerSP> playerRef = new WeakReference<>(mc().thePlayer);
+            
+            while (waitForCancel == 0 && (currTime = System.currentTimeMillis()) - r.begin <= r.duration) {
+                EntityPlayerSP player;
+                if ((player = playerRef.get()) == null) break;
+                if (currTime - prevTime < 1) continue;
+                
+                float progress = clampF((float) (currTime - r.begin) / r.duration, 0f, 1f);
+                float currYawOffset = progress * (r.yaw - beginYawOffset) + beginYawOffset;
+                float currPitchOffset = progress * (r.pitch - beginPitchOffset) + beginPitchOffset;
+                
+                player.rotationYaw = (player.rotationYaw + currYawOffset - prevYawOffset) % 360;
+                player.rotationPitch = clampF(player.rotationPitch + currPitchOffset - prevPitchOffset, -90, 90);
+                
+                prevTime = currTime;
+                prevYawOffset = currYawOffset;
+                prevPitchOffset = currPitchOffset;
+            }
+            rotation = null;
+            
+            synchronized (stateLock) {
+                state = ThreadState.SUSPEND;
+                stateLock.notifyAll();
+            }
+            
+            synchronized (waitForCancelLock) {
+                while (waitForCancel > 0) {
+                    try {
+                        waitForCancelLock.wait();
+                    } catch (InterruptedException e) {
+                        AutoFish.logger.info("Interrupted, stopping", e);
+                        Thread.currentThread().interrupt();
+                        break loop;
+                    }
+                }
+            }
+        }
+        
+        AutoFish.logger.info("Thread dead");
+        synchronized (stateLock) {
+            state = ThreadState.STOPPED;
+            stateLock.notifyAll();
+        }
     }
     
     private static final class Rotation {
         public final float yaw;
         public final float pitch;
-        public final long time;
+        public final long begin;
+        public final long duration;
         
         public Rotation(
           float yaw,
           float pitch,
-          long time
+          long duration
         ) {
+            this.begin = System.currentTimeMillis();
             this.yaw = yaw;
-            this.pitch = clampPitch(pitch);
-            this.time = time;
-        }
-        
-        public static final Comparator<Rotation> comparator = Comparator.comparingLong(it -> it.time);
-    }
-    
-    private static final class MoveThread
-      extends Thread
-    {
-        private static final MoveThread instance = new MoveThread();
-        
-        private static final Queue<Rotation> que = new PriorityQueue<>(Rotation.comparator);
-        private static long lastTime = 0;
-        private static float lastYaw = 0;
-        private static float lastPitch = 0;
-        private static boolean stop = false;
-        
-        public static void clear(@Nullable EntityPlayerSP player) {
-            synchronized (que) {
-                que.clear();
-                if (player != null) update(player, System.currentTimeMillis());
-            }
-        }
-        
-        public static void put(
-          @NotNull EntityPlayerSP player,
-          Rotation... values
-        ) {
-            synchronized (que) {
-                if (que.isEmpty()) update(player, System.currentTimeMillis());
-                for (Rotation value : values) if (value != null) que.offer(value);
-            }
-        }
-        
-        private static final long delay = 1;
-        
-        private MoveThread() {
-            super("Auto Fish | anti afk move thread");
+            this.pitch = pitch;
+            this.duration = duration;
         }
         
         @Override
-        public synchronized void run() {
-            try {
-                AutoFish.logger.info("Thread start");
-                long curr = System.currentTimeMillis(), next = curr;
-                while (!stop) {
-                    if ((curr = System.currentTimeMillis()) < next) continue;
-                    try {
-                        _loop(curr);
-                    } catch (Throwable e) {
-                        AutoFish.logger.info("Failure occur during loop", e);
-                    }
-                    next += delay;
-                }
-            } finally {
-                AutoFish.logger.info("Thread dead");
-            }
-        }
-        
-        private void _loop(long time) {
-            EntityPlayerSP player;
-            if ((player = mc().thePlayer) == null) {
-                clear(null);
-                return;
-            }
-            
-            Rotation first;
-            Rotation last = null;
-            synchronized (que) {
-                while ((first = que.peek()) != null && first.time <= time) last = que.poll();
-            }
-            if (last != null) {
-                rotate(player, last.yaw, last.pitch);
-                update(player, time);
-            }
-            if (first == null) return;
-            float progress = clampF(1f - (float) (first.time - time) / (first.time - lastTime), 0f, 1f);
-            rotate(
-              player,
-              lastYaw + wrapTo180F(first.yaw - lastYaw) * progress,
-              lastPitch + (first.pitch - lastPitch) * progress
-            );
-        }
-        
-        private static void rotate(
-          EntityPlayerSP player,
-          float yaw,
-          float pitch
-        ) {
-            player.rotationYaw = yaw; // No wrap here or weird rotation
-            player.rotationPitch = clampPitch(pitch);
-        }
-        
-        private static void update(
-          EntityPlayerSP player,
-          long time
-        ) {
-            lastTime = time;
-            lastYaw = player.rotationYaw;
-            lastPitch = player.rotationPitch;
+        public String toString() {
+            return "Rotation{begin=" + begin + ",duration=" + duration + ",yaw=" + yaw + ",pitch=" + pitch + "}";
         }
     }
 }

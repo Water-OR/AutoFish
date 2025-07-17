@@ -17,10 +17,7 @@ import cc.polyfrost.oneconfig.config.data.Mod;
 import cc.polyfrost.oneconfig.config.data.ModType;
 import net.llvg.af.hud.HudAutoFish;
 import net.llvg.af.hud.HudFishTimer;
-import net.minecraft.client.entity.EntityPlayerSP;
 import org.jetbrains.annotations.NotNull;
-
-import static net.llvg.af.utils.Utility.*;
 
 @SuppressWarnings ({ "FieldMayBeFinal", "FieldCanBeLocal" })
 final class AutoFishConfiguration
@@ -37,6 +34,12 @@ final class AutoFishConfiguration
           true
         );
         
+        StackTraceElement trace = new Throwable().getStackTrace()[1];
+        if (
+          !AutoFishConfiguration.class.getName().equals(trace.getClassName()) ||
+          !"<clinit>".equals(trace.getMethodName())
+        ) throw new UnsupportedOperationException();
+        
         initialize();
         
         registerKeyBind(toggleKey, AutoFish::toggle);
@@ -44,12 +47,18 @@ final class AutoFishConfiguration
     }
     
     @Override
-    public void save() {
-        super.save();
-        if (!enabled) AutoFish.onConfigurationDisable();
+    public void load() {
+        super.load();
     }
     
-    static void init() { }
+    @Override
+    public void save() {
+        super.save();
+        AutoFish.logger.info("Saving configs");
+        if (!enabled) AutoFish.toggle();
+    }
+    
+    static void init() { /* For <clinit> invoke */ }
     
     @SuppressWarnings ("BooleanMethodIsAlwaysInverted")
     public static boolean isEnabled() {
@@ -336,14 +345,14 @@ final class AutoFishConfiguration
       category = CATEGORY_HUD
     )
     @SuppressWarnings ("unused")
-    private HudAutoFish hudAutoFish = HudAutoFish.instance;
+    private HudAutoFish hudAutoFish = HudAutoFish.DEFAULT;
     
     @HUD (
       name = "Fish Timer",
       category = CATEGORY_HUD
     )
     @SuppressWarnings ("unused")
-    private HudFishTimer hudFishTimer = HudFishTimer.instance;
+    private HudFishTimer hudFishTimer = HudFishTimer.DEFAULT;
     
     @Exclude
     private static final String CATEGORY_DEBUG = "Debug";
@@ -375,8 +384,7 @@ final class AutoFishConfiguration
     )
     @SuppressWarnings ("unused")
     private static void rotate() {
-        EntityPlayerSP player;
-        if ((player = mc().thePlayer) != null) AutoFishAntiAfk.trigger(player);
+        AutoFishAntiAfk.trigger();
     }
     
     @KeyBind (

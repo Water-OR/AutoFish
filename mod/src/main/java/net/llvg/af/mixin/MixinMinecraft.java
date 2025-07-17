@@ -64,7 +64,7 @@ public abstract class MixinMinecraft {
       at = @At (value = "HEAD")
     )
     private void rightClickMouseInject(CallbackInfo ci) {
-        AutoFish.markDoneRightClick();
+        AutoFish.onRightClick();
     }
     
     @Inject (

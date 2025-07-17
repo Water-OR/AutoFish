@@ -3,6 +3,7 @@ package net.llvg.af;
 import cc.polyfrost.oneconfig.utils.hypixel.HypixelUtils;
 import cc.polyfrost.oneconfig.utils.hypixel.LocrawInfo;
 import cc.polyfrost.oneconfig.utils.hypixel.LocrawUtil;
+import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -23,8 +24,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.play.server.S1CPacketEntityMetadata;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.ChatComponentText;
-import net.minecraft.util.ChatStyle;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.world.chunk.Chunk;
 import org.apache.logging.log4j.LogManager;
@@ -41,87 +40,57 @@ public final class AutoFish {
         throw new UnsupportedOperationException();
     }
     
-    private static final IChatComponent[] prefix = new IChatComponent[] {
-      new ChatComponentText("Auto Fish "),
-      new ChatComponentText("|>")
-        .setChatStyle(
-        new ChatStyle()
-          .setColor(EnumChatFormatting.AQUA)
-          .setBold(true)
-      ),
-      new ChatComponentText(" ")
-    };
+    private static final String prefix = "Auto Fish §b§l|>§r ";
     
-    public static synchronized void chat(Object... args) {
+    public static void chat(Object... args) {
         if (args == null) return;
         GuiIngame ui;
+        
         if ((ui = mc().ingameGUI) == null) return;
-        IChatComponent msg = new ChatComponentText("");
-        for (IChatComponent i : prefix) if (i != null) msg.appendSibling(i);
+        StringBuilder builder = new StringBuilder(prefix);
         for (Object arg : args) {
-            if (arg == null) {
-                msg.appendSibling(new ChatComponentText("null"));
-            } else if (arg instanceof IChatComponent) {
-                msg.appendSibling((IChatComponent) arg);
-            } else if (arg instanceof String) {
-                msg.appendSibling(new ChatComponentText((String) arg));
-            } else {
-                msg.appendSibling(new ChatComponentText(arg.toString()));
-            }
+            if (arg instanceof IChatComponent) builder.append(((IChatComponent) arg).getFormattedText());
+            else builder.append(arg);
         }
-        ui.getChatGUI().printChatMessage(msg);
+        ui.getChatGUI().printChatMessage(new ChatComponentText(builder.toString()));
     }
     
     private static final Object stateLock = new Object();
-    private static boolean active = false;
-    private static boolean waitingForHookJoin = false;
-    private static boolean waitingForHookDead = false;
-    private static boolean doneRightClickThisTick = false;
-    
-    @Nullable
-    private static ItemStack holdingItem = null;
-    private static boolean holdingRod = false;
+    private static volatile boolean active = false;
     
     public static boolean isActive() {
         return active;
     }
     
-    public static synchronized void toggle() {
-        boolean _active;
+    static void toggle() {
+        boolean wasActive;
         synchronized (stateLock) {
-            _active = (active = !active);
+            wasActive = (active = !active && AutoFishConfiguration.isEnabled());
         }
-        if (active) {
-            throwFirstClock.update();
+        if (wasActive) {
+            chat("Auto fish is now §aon");
         } else {
-            AutoFishAntiAfk.reset(mc().thePlayer, AutoFishConfiguration.isResetFacingWhenNotFishing());
-            waitingForHookJoin = false;
-            waitingForHookDead = false;
+            chat("Auto fish is now §coff");
+            AutoFishAntiAfk.reset(AutoFishConfiguration.isResetFacingWhenNotFishing());
         }
-        chat(
-          "Auto fish is now ",
-          _active
-          ? new ChatComponentText("on")
-            .setChatStyle(
-              new ChatStyle()
-                .setColor(EnumChatFormatting.GREEN)
-            )
-          : new ChatComponentText("off")
-            .setChatStyle(
-              new ChatStyle()
-                .setColor(EnumChatFormatting.RED)
-            )
-        );
-    }
-    
-    static synchronized void onConfigurationDisable() {
-        if (active) toggle();
-        waitingForHookDead = false;
-        waitingForHookJoin = false;
     }
     
     @Nullable
-    private static EntityFishHook hook = null;
+    private static WeakReference<EntityFishHook> hookRef = null;
+    
+    @Nullable
+    public static EntityFishHook getHook() {
+        WeakReference<EntityFishHook> ref;
+        return (ref = hookRef) == null ? null : ref.get();
+    }
+    
+    private enum HookWaitingState {
+        WAITING_JOIN,
+        WAITING_DEAD,
+    }
+    
+    @Nullable
+    private static HookWaitingState hookWaitingState = null;
     
     public static final Pattern fishingTimerWarnRegex = Pattern.compile("§e§l(\\d+(\\.\\d+)?)");
     public static final String fishingTimerCatchString = "§c§l!!!";
@@ -131,17 +100,39 @@ public final class AutoFish {
     }
     
     @Nullable
-    private static EntityArmorStand timer = null;
+    private static WeakReference<EntityArmorStand> timerRef = null;
     
     @Nullable
     public static EntityArmorStand getTimer() {
-        return timer;
+        WeakReference<EntityArmorStand> ref;
+        return (ref = timerRef) == null ? null : ref.get();
+    }
+    
+    private static void setTimer(@Nullable EntityArmorStand value) {
+        timerRef = value == null ? null : new WeakReference<>(value);
     }
     
     private static final Clock catchClock = new Clock();
     private static final Clock throwClock = new Clock();
     
     private static final Clock throwFirstClock = new Clock();
+    
+    private static boolean doneRightClickThisTick = false;
+    
+    private static void doRightClick() {
+        if (doneRightClickThisTick) return;
+        if (AutoFishConfiguration.isVerbose()) chat("Do right click, time=", System.currentTimeMillis());
+        mc().rightClickMouse();
+    }
+    
+    public static synchronized void onRightClick() {
+        if (AutoFishConfiguration.isVerbose()) chat("Done right click, time=", System.currentTimeMillis());
+        doneRightClickThisTick = true;
+    }
+    
+    @Nullable
+    private static ItemStack heldItem = null;
+    private static boolean heldRod = false;
     
     public static void onTickStart() {
         doneRightClickThisTick = false;
@@ -151,30 +142,16 @@ public final class AutoFish {
         EntityPlayerSP player;
         if ((player = mc().thePlayer) == null) return;
         
-        ItemStack currHoldingItem = player.getHeldItem();
-        if (holdingItem == null || holdingItem != currHoldingItem) {
-            boolean currHoldingRod = currHoldingItem != null && currHoldingItem.getItem() instanceof ItemFishingRod;
-            
-            if (active) {
-                if (!holdingRod) throwFirstClock.update();
-                if (!currHoldingRod) {
-                    AutoFishAntiAfk.reset(player, holdingRod && AutoFishConfiguration.isResetFacingWhenNotFishing());
-                    waitingForHookJoin = false;
-                    waitingForHookDead = false;
-                }
-            }
-            
-            holdingItem = currHoldingItem;
-            holdingRod = currHoldingRod;
+        ItemStack holdingItem;
+        if (heldItem != (holdingItem = player.getHeldItem())) {
+            boolean holdingRod = holdingItem != null && holdingItem.getItem() instanceof ItemFishingRod;
+            if (isActive() && heldRod && !holdingRod) AutoFishAntiAfk.reset(AutoFishConfiguration.isResetFacingWhenNotFishing());
+            heldRod = holdingRod;
+            heldItem = holdingItem;
+            throwFirstClock.update();
         }
         
-        if (
-          active &&
-          holdingRod &&
-          (hook == null || AutoFishConfiguration.isDoNotWaitHookDead() && waitingForHookDead)
-        ) {
-            doThrow();
-        }
+        if (isActive()) doThrow();
     }
     
     private static final Map<Chunk, Dummy> loadedChunks = new WeakHashMap<>();
@@ -204,17 +181,18 @@ public final class AutoFish {
     }
     
     public static void onWorldLoad(@Nullable WorldClient newWorld) {
-        hook = null;
-        timer = null;
-        holdingItem = null;
+        hookRef = null;
+        timerRef = null;
+        heldItem = null;
+        hookWaitingState = null;
         loadedChunks.clear();
         
-        if (newWorld != null && active) {
+        if (newWorld != null && isActive()) {
             throwFirstClock.update();
-            AutoFishAntiAfk.reset(mc().thePlayer, false);
             toggle();
         }
         
+        AutoFishAntiAfk.reset(false);
         AutoFishCHLavaESP.onWorldLoad(newWorld);
     }
     
@@ -238,34 +216,30 @@ public final class AutoFish {
         AutoFishCHLavaESP.doRender();
     }
     
-    public static void onEntityJoin(Entity entity) {
-        if (hook == null || entity != hook) {
-            EntityPlayerSP player;
-            if (
-              entity instanceof EntityFishHook &&
-              (player = mc().thePlayer) != null &&
-              ((EntityFishHook) entity).angler == player
-            ) {
-                if (AutoFishConfiguration.isVerbose()) chat("Fish hook join");
-                hook = ((EntityFishHook) entity);
-                waitingForHookDead = false;
-                waitingForHookJoin = false;
-            }
-        }
+    public static void onEntityJoin(@NotNull Entity entity) {
+        EntityFishHook hook1;
+        if (
+          (hook1 = getHook()) != null && entity == hook1 ||
+          !(entity instanceof EntityFishHook) ||
+          ((EntityFishHook) entity).angler != mc().thePlayer
+        ) return;
+        
+        if (AutoFishConfiguration.isVerbose()) chat("Fishing hook join");
+        hookRef = new WeakReference<>((EntityFishHook) entity);
+        hookWaitingState = null;
     }
     
-    public static void onEntityDead(
-      Entity entity
-    ) {
-        if (entity == hook) {
-            if (AutoFishConfiguration.isVerbose()) chat("Fish hook dead");
-            hook = null;
-            waitingForHookDead = false;
+    public static void onEntityDead(@NotNull Entity entity) {
+        if (entity == getHook()) {
+            if (AutoFishConfiguration.isVerbose()) chat("Fishing hook dead");
+            hookRef = null;
+            if (hookWaitingState != HookWaitingState.WAITING_JOIN) hookWaitingState = null;
+            return;
         }
         
-        if (entity == timer) {
-            if (AutoFishConfiguration.isVerbose()) chat("Fish timer dead");
-            timer = null;
+        if (entity == getTimer()) {
+            if (AutoFishConfiguration.isVerbose()) chat("Fishing timer dead");
+            timerRef = null;
         }
     }
     
@@ -273,113 +247,96 @@ public final class AutoFish {
       S1CPacketEntityMetadata ignored,
       Entity entity
     ) {
-        if (timer == null || entity != timer) {
-            String name;
+        EntityArmorStand timer;
+        if ((timer = getTimer()) != null && entity == timer) {
             if (
-              entity instanceof EntityArmorStand &&
-              entity.hasCustomName() &&
-              !(name = entity.getName()).isEmpty() &&
-              matchFishingTimer(name)
+              isActive() &&
+              AutoFishConfiguration.isUseFishTimerCheck() &&
+              entity.getCustomNameTag().equals(fishingTimerCatchString)
             ) {
-                if (AutoFishConfiguration.isVerbose()) chat("Fish timer join");
-                timer = (EntityArmorStand) entity;
+                if (AutoFishConfiguration.isVerbose()) chat("Active fishing timer catch");
+                doCatch();
             }
-        } else {
-            EntityPlayerSP player;
-            if (
-              active &&
-              AutoFishConfiguration.isUseFishTimerCheck() && (player = mc().thePlayer) != null &&
-              entity.getName().equals(fishingTimerCatchString)
-            ) {
-                if (AutoFishConfiguration.isVerbose()) chat("Active fish timer catch");
-                doCatch(player);
-            }
+        } else if (
+          entity instanceof EntityArmorStand &&
+          matchFishingTimer(entity.getCustomNameTag())
+        ) {
+            if (AutoFishConfiguration.isVerbose()) chat("Fishing timer join");
+            setTimer((EntityArmorStand) entity);
         }
     }
     
     public static void onSound(ISound sound) {
-        String name = sound.getSoundLocation().getResourcePath();
+        if (!isActive()) return;
         EntityFishHook hook1;
-        if ((hook1 = hook) == null) return;
+        if ((hook1 = getHook()) == null) return;
         
-        if (
-          active &&
-          AutoFishConfiguration.isUseNoteSoundCheck() &&
-          name.equals("note.pling")
-        ) {
-            if (
-              sound.getPitch() == 1 &&
-              sound.getVolume() == 1
-            ) {
+        switch (sound.getSoundLocation().getResourcePath()) {
+            case "note.pling":
+                if (
+                  !AutoFishConfiguration.isUseNoteSoundCheck() ||
+                  sound.getPitch() != 1 ||
+                  sound.getVolume() != 1
+                ) break;
                 if (AutoFishConfiguration.isVerbose()) chat("Active note sound catch");
-                doCatch((EntityPlayerSP) hook1.angler);
-            }
-        }
-        if (
-          active &&
-          AutoFishConfiguration.isUseSwimSoundCheck() &&
-          name.equals("game.player.swim.splash")
-        ) {
-            float expand = AutoFishConfiguration.getExpandSwimSoundCheckRange();
-            if (
-              Math.abs(sound.getXPosF() - hook1.posX) < expand &&
-              Math.abs(sound.getYPosF() - hook1.posY) < expand &&
-              Math.abs(sound.getZPosF() - hook1.posZ) < expand
-            ) {
+                doCatch();
+                break;
+            
+            case "game.player.swim.splash":
+                if (!AutoFishConfiguration.isUseSwimSoundCheck()) break;
+                float expand = AutoFishConfiguration.getExpandSwimSoundCheckRange();
+                if (
+                  Math.abs(sound.getXPosF() - hook1.posX) >= expand ||
+                  Math.abs(sound.getYPosF() - hook1.posY) >= expand ||
+                  Math.abs(sound.getZPosF() - hook1.posZ) >= expand
+                ) break;
                 if (AutoFishConfiguration.isVerbose()) chat("Active swim sound catch");
-                doCatch((EntityPlayerSP) hook1.angler);
-            }
+                doCatch();
+                break;
         }
     }
     
-    private static void doRightClick() {
-        if (doneRightClickThisTick) return;
-        if (AutoFishConfiguration.isVerbose()) chat("Do right click, time=", System.currentTimeMillis());
-        mc().rightClickMouse();
-    }
-    
-    public static synchronized void markDoneRightClick() {
-        doneRightClickThisTick = true;
-    }
-    
-    private static synchronized void doCatch(@NotNull EntityPlayerSP player) {
+    private static synchronized void doCatch() {
         if (
-          hook != null &&
-          holdingRod &&
-          !waitingForHookDead &&
-          !doneRightClickThisTick &&
-          AutoFishConfiguration.isAutoCatch() &&
-          catchClock.ended(AutoFishConfiguration.getAutoCatchDelay())
-        ) {
-            if (AutoFishConfiguration.isVerbose()) chat("Do catch, time=", System.currentTimeMillis());
-            doRightClick();
-            waitingForHookDead = true;
-            throwClock.update();
-            if (AutoFishConfiguration.isAntiAfk()) AutoFishAntiAfk.trigger(player);
-        }
+          !AutoFishConfiguration.isAutoCatch() ||
+          doneRightClickThisTick ||
+          !heldRod ||
+          getHook() == null ||
+          hookWaitingState == null ||
+          !catchClock.ended(AutoFishConfiguration.getAutoCatchDelay())
+        ) return;
+        if (AutoFishConfiguration.isVerbose()) chat("Do catch, time=", System.currentTimeMillis());
+        doRightClick();
+        hookWaitingState = HookWaitingState.WAITING_DEAD;
+        throwClock.update();
+        if (AutoFishConfiguration.isAntiAfk()) AutoFishAntiAfk.trigger();
     }
     
     private static synchronized void doThrow() {
         if (
-          !waitingForHookJoin &&
-          !doneRightClickThisTick &&
-          AutoFishConfiguration.isAutoThrow() &&
-          throwClock.ended(AutoFishConfiguration.getAutoThrowDelay()) &&
-          throwFirstClock.ended(AutoFishConfiguration.getAutoThrowFirstDelay())
-        ) {
-            if (AutoFishConfiguration.isVerbose()) chat("Do throw, time=", System.currentTimeMillis());
-            doRightClick();
-            waitingForHookJoin = true;
-            catchClock.update();
-        }
+          !AutoFishConfiguration.isAutoThrow() ||
+          doneRightClickThisTick ||
+          !heldRod ||
+          hookWaitingState == HookWaitingState.WAITING_JOIN ||
+          getHook() != null && !(AutoFishConfiguration.isDoNotWaitHookDead() && hookWaitingState == HookWaitingState.WAITING_DEAD) ||
+          !throwClock.ended(AutoFishConfiguration.getAutoThrowDelay()) ||
+          !throwFirstClock.ended(AutoFishConfiguration.getAutoThrowFirstDelay())
+        ) return;
+        if (AutoFishConfiguration.isVerbose()) chat("Do throw, time=", System.currentTimeMillis());
+        doRightClick();
+        hookWaitingState = HookWaitingState.WAITING_JOIN;
+        catchClock.update();
     }
     
-    public static void init() { }
+    public static void init() { /* For <clinit> invoke */ }
+    
+    static {
+        AutoFishCHLavaESP.init();
+        AutoFishAntiAfk.init();
+    }
     
     public static void onGameStarted() {
         AutoFishConfiguration.init();
-        AutoFishAntiAfk.init();
-        AutoFishCHLavaESP.init();
     }
     
     public static void onGameStop() {

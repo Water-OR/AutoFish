@@ -24,26 +24,26 @@ public final class CullInfo {
     }
     
     public boolean getDown() {
-        return (value & 0x01) == 0;
+        return (value & 0x01) != 0;
     }
     
     public boolean getUp() {
-        return (value & 0x02) == 0;
+        return (value & 0x02) != 0;
     }
     
     public boolean getNorth() {
-        return (value & 0x04) == 0;
+        return (value & 0x04) != 0;
     }
     
     public boolean getSouth() {
-        return (value & 0x08) == 0;
+        return (value & 0x08) != 0;
     }
     
     public boolean getWest() {
-        return (value & 0x10) == 0;
+        return (value & 0x10) != 0;
     }
     
     public boolean getEast() {
-        return (value & 0x20) == 0;
+        return (value & 0x20) != 0;
     }
 }

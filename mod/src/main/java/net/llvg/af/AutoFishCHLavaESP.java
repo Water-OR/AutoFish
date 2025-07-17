@@ -1,8 +1,9 @@
 package net.llvg.af;
 
 import cc.polyfrost.oneconfig.config.core.OneColor;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -14,7 +15,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import net.llvg.af.utils.AutoClosableNE;
 import net.llvg.af.utils.CullInfo;
-import net.llvg.af.utils.Dummy;
 import net.llvg.af.utils.RenderUtility;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
@@ -23,6 +23,7 @@ import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.BlockPos;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.world.ChunkCoordIntPair;
 import net.minecraft.world.chunk.Chunk;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -36,7 +37,7 @@ final class AutoFishCHLavaESP {
         throw new UnsupportedOperationException();
     }
     
-    private static final Map<Chunk, Dummy> scannedChunks = new WeakHashMap<>();
+    private static final Set<ChunkCoordIntPair> scannedChunks = new HashSet<>();
     private static final Map<BlockPos, CullInfo> lavaBlocks = new ConcurrentSkipListMap<>();
     
     @Nullable
@@ -111,7 +112,7 @@ final class AutoFishCHLavaESP {
         if (AutoFishConfiguration.isVerbose()) AutoFish.chat("Chunk[", chunk.xPosition, ", ", chunk.zPosition, "] scanning finished");
     }
     
-    static void init() { /* For early <clinit> invoke */ }
+    static void init() { /* For <clinit> invoke */ }
     
     static void onWorldLoad(@Nullable WorldClient newWorld) {
         ExecutorService oldExecutor;
@@ -170,7 +171,7 @@ final class AutoFishCHLavaESP {
     
     static void submitChunkScan(@NotNull Chunk chunk) {
         if (
-          scannedChunks.get(chunk) == DUMMY ||
+          scannedChunks.contains(chunk.getChunkCoordIntPair()) ||
           chunk.xPosition < FLAMING_WORM_BEGIN_INCLUSIVE_X >> 4 ||
           chunk.zPosition < FLAMING_WORM_BEGIN_INCLUSIVE_Z >> 4 ||
           FLAMING_WORM_END_INCLUSIVE_X >> 4 < chunk.xPosition ||
@@ -182,7 +183,7 @@ final class AutoFishCHLavaESP {
         try (AutoClosableNE ignored = withLock(lock.writeLock())) {
             if (executor != null) executor.submit(() -> scanChunkLava(chunk));
         }
-        scannedChunks.put(chunk, DUMMY);
+        scannedChunks.add(chunk.getChunkCoordIntPair());
     }
     
     static void onBlockChange(
@@ -190,8 +191,8 @@ final class AutoFishCHLavaESP {
       @NotNull IBlockState newState
     ) {
         if (
-          !AutoFishConfiguration.isEnabled() ||
           !AutoFish.isInCH() ||
+          !scannedChunks.contains(new ChunkCoordIntPair(pos.getX() >> 4, pos.getZ() >> 4)) ||
           pos.getX() < FLAMING_WORM_BEGIN_INCLUSIVE_X ||
           pos.getY() < FLAMING_WORM_BEGIN_INCLUSIVE_Y ||
           pos.getZ() < FLAMING_WORM_BEGIN_INCLUSIVE_Z ||
