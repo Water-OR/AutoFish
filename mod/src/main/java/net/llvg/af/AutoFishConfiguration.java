@@ -131,6 +131,25 @@ final class AutoFishConfiguration
         return instance.resetFacingWhenNotFishing;
     }
     
+    @Info (
+      text = "According to Yqloss, async rotation is unsafe. So it's now disabled by default",
+      type = InfoType.WARNING,
+      subcategory = SUBCATEGORY_ANTI_AFK,
+      size = 2
+    )
+    @SuppressWarnings ("unused")
+    private Void info2 = null;
+    
+    @Checkbox (
+      name = "Use Async Rotation",
+      subcategory = SUBCATEGORY_ANTI_AFK
+    )
+    private boolean useAsyncRotation = false;
+    
+    public static boolean isUseAsyncRotation() {
+        return instance.useAsyncRotation;
+    }
+    
     @Exclude
     private static final String SUBCATEGORY_CATCH = "Catch";
     
