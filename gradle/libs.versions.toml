@@ -1,0 +1,7 @@
+[versions]
+loom = "1.9.31"
+shadow = "8.3.7"
+
+[plugins]
+loom = { id = "gg.essential.loom", version.ref = "loom" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

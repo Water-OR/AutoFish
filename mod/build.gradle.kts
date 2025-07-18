@@ -2,9 +2,9 @@ import dev.architectury.pack200.java.Pack200Adapter
 import org.jetbrains.kotlin.gradle.utils.extendsFrom
 
 plugins {
-    id("gg.essential.loom") version "1.9.31"
-    id("com.gradleup.shadow") version "8.3.7"
-    `java-library`
+    alias(libs.plugins.loom)
+    alias(libs.plugins.shadow)
+    java
     `kotlin-dsl`
 }
 
