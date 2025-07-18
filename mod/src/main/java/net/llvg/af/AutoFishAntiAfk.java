@@ -2,6 +2,7 @@ package net.llvg.af;
 
 import java.lang.ref.WeakReference;
 import java.util.Random;
+import java.util.function.Consumer;
 import net.minecraft.client.entity.EntityPlayerSP;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -15,7 +16,7 @@ final class AutoFishAntiAfk {
     
     static void init() { /* For <clinit> invoke */ }
     
-    private static final Thread thread = new Thread(AutoFishAntiAfk::loop, "Auto Fish | Anti afk rotator thread");
+    private static final Thread thread = new Thread(AutoFishAntiAfk::asyncLoop, "Auto Fish | Anti afk rotator thread");
     
     static {
         thread.start();
@@ -33,6 +34,9 @@ final class AutoFishAntiAfk {
     
     private static volatile int waitForCancel = 0;
     private static final Object waitForCancelLock = new Object();
+    
+    @Nullable
+    private static Consumer<@NotNull EntityPlayerSP> blockLoop = null;
     
     static void stop() {
         if (!thread.isAlive()) {
@@ -56,34 +60,68 @@ final class AutoFishAntiAfk {
     @Nullable
     private static volatile Rotation rotation = null;
     
+    private static float prevYawOffset = 0;
+    private static float prevPitchOffset = 0;
+    
     private static final Random rand = new Random();
     
     private static void cancel() {
         synchronized (stateLock) {
-            if (state != ThreadState.RUNNING) return;
             ++waitForCancel;
-            try {
+            blockLoop = null;
+            if (state == ThreadState.RUNNING) try {
                 stateLock.wait();
             } catch (InterruptedException e) {
                 AutoFish.logger.warn("Thread interrupt while waiting cancelling", e);
                 Thread.currentThread().interrupt();
             } finally {
                 if (--waitForCancel <= 0) synchronized (waitForCancelLock) {
+                    rotation = null;
                     waitForCancelLock.notifyAll();
                 }
             }
         }
-        
     }
     
     private static void rotate(
       float yaw,
       float pitch
     ) {
+        Rotation newRotation;
         synchronized (stateLock) {
             if (state != ThreadState.SUSPEND) return;
-            rotation = new Rotation(yaw, pitch, AutoFishConfiguration.getAntiAfkRotationTime());
-            stateLock.notifyAll();
+            rotation = newRotation = new Rotation(yaw, pitch, AutoFishConfiguration.getAntiAfkRotationTime());
+            if (AutoFishConfiguration.isUseAsyncRotation()) stateLock.notifyAll();
+            else blockLoop = new Consumer<@NotNull EntityPlayerSP>() {
+                private final float beginYawOffset = prevYawOffset;
+                private final float beginPitchOffset = prevPitchOffset;
+                
+                @NotNull
+                private final Rotation r = newRotation;
+                
+                long currTime;
+                long prevTime = System.currentTimeMillis();
+                
+                @Override
+                public void accept(@NotNull EntityPlayerSP player) {
+                    if (
+                      (player = mc().thePlayer) == null ||
+                      (currTime = System.currentTimeMillis()) - r.begin > r.duration ||
+                      currTime - prevTime < 1
+                    ) return;
+                    
+                    float progress = clampF((float) (currTime - r.begin) / r.duration, 0f, 1f);
+                    float currYawOffset = progress * (r.yaw - beginYawOffset) + beginYawOffset;
+                    float currPitchOffset = progress * (r.pitch - beginPitchOffset) + beginPitchOffset;
+                    
+                    player.rotationYaw = (player.rotationYaw + currYawOffset - prevYawOffset) % 360;
+                    player.rotationPitch = clampF(player.rotationPitch + currPitchOffset - prevPitchOffset, -90, 90);
+                    
+                    prevTime = currTime;
+                    prevYawOffset = currYawOffset;
+                    prevPitchOffset = currPitchOffset;
+                }
+            };
         }
     }
     
@@ -100,15 +138,21 @@ final class AutoFishAntiAfk {
         if (rotate) rotate(0, 0);
     }
     
-    
-    private static void loop() {
-        AutoFish.logger.info("Thread start");
+    static void onGameLoop() {
+        Consumer<@NotNull EntityPlayerSP> loop;
+        if ((loop = blockLoop) == null) return;
         
-        float prevYawOffset = 0;
-        float prevPitchOffset = 0;
-        Rotation r;
+        EntityPlayerSP player;
+        if ((player = mc().thePlayer) == null) return;
+        
+        loop.accept(player);
+    }
+    
+    private static void asyncLoop() {
+        AutoFish.logger.info("Thread start");
 loop:
         while (true) {
+            Rotation r;
             synchronized (stateLock) {
                 while ((r = rotation) == null) {
                     try {
@@ -147,8 +191,8 @@ loop:
                 prevYawOffset = currYawOffset;
                 prevPitchOffset = currPitchOffset;
             }
-            rotation = null;
             
+            rotation = null;
             synchronized (stateLock) {
                 state = ThreadState.SUSPEND;
                 stateLock.notifyAll();

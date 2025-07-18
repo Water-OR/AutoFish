@@ -302,7 +302,7 @@ public final class AutoFish {
           doneRightClickThisTick ||
           !heldRod ||
           getHook() == null ||
-          hookWaitingState == null ||
+          hookWaitingState != null ||
           !catchClock.ended(AutoFishConfiguration.getAutoCatchDelay())
         ) return;
         if (AutoFishConfiguration.isVerbose()) chat("Do catch, time=", System.currentTimeMillis());
@@ -341,5 +341,9 @@ public final class AutoFish {
     
     public static void onGameStop() {
         AutoFishAntiAfk.stop();
+    }
+    
+    public static void onGameLoop() {
+        AutoFishAntiAfk.onGameLoop();
     }
 }
